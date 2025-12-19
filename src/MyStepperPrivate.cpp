@@ -298,7 +298,7 @@ bool MyStepper::CountSteps(accel_t* accel)
     }
     while(curSpeed < accel->dstSpeed);
                                                         
-    if(bPtrOnHead->ptrOnPrev != nullptr)    // Суммирование шагов торможения, если уровней торможения больше, чем один
+    if(bPtrOnHead->ptrOnPrev != nullptr)    //  Here we're summing steps, that engine do, while braking in case when we have several brake levels (not one)
     {
         brake_t* node = bPtrOnHead;
         do
@@ -315,8 +315,8 @@ bool MyStepper::CheckNeedCountSteps(accel_t* accel)
 {
     if(lastFinishAccel != nullptr)
     {
-        if((accel->bgnSpeed == lastFinishAccel->bgnSpeed) &&    // если торможение при предыдущем движении было таким же, как и 
-           (accel->dstSpeed == lastFinishAccel->dstSpeed) &&    // при текущем движении, то перещитывать его не нужно
+        if((accel->bgnSpeed == lastFinishAccel->bgnSpeed) &&    //  If the current braking is the same like the previous one,
+           (accel->dstSpeed == lastFinishAccel->dstSpeed) &&    //  we shouldnt recount it
            (accel->time_ms == lastFinishAccel->time_ms))
         {
             return 0;
@@ -325,7 +325,7 @@ bool MyStepper::CheckNeedCountSteps(accel_t* accel)
     lastFinishAccel = accel;
 
     brake_t* node;
-    while(bPtrOnHead != nullptr)                               // удаление предыдущего торможения если торможение нужно пересчитать
+    while(bPtrOnHead != nullptr)                               // This is the deleting of a previous braking, in case we need to recount it
     {
         node = bPtrOnHead;
         bPtrOnHead = bPtrOnHead->ptrOnPrev;
