@@ -71,6 +71,8 @@
 
 #endif
 
+uint8_t MyStepper::interrupterStep_us = 10;
+
 uint8_t MyStepper::numSteppers = 0;
 
 uint8_t MyStepper::staticErrorCommand = 0;
@@ -82,8 +84,6 @@ MyStepper* MyStepper::currentPtr = nullptr;
 MyStepper* MyStepper::unitPtr = nullptr;
 
 HardwareSerial* MyStepper::MySerial = nullptr;
-
-uint8_t MyStepper::interrupterStep_us = 10;
 
 void MyStepper::InternalSetCurrentSpeed(dir_t dir, uint8_t currentSpeed)
 {
@@ -101,14 +101,17 @@ bool MyStepper::InternalChangeSpeed(accel_t* accel, bool refresh)
 {
     if(refresh)
     {
+        moveFlag = true;
+
         if(accel->period_ms == 0)   // no acceleration
         {
+            speed = accel->dstSpeed;
             accelSuccess = true;
             return 1;
         }
 
         accelSuccess = false;
-        moveFlag = true;
+        speedCounter = accel->numPeriods + 1;
         currentUnrealNumStepsPerPeriod = accel->bgnNumStepsPerPeriod;
     }
 
@@ -120,15 +123,16 @@ bool MyStepper::InternalChangeSpeed(accel_t* accel, bool refresh)
         previousMillis = ms;
     if(ms >= previousMillis + accel->period_ms)
     {
-        if(speed != accel->dstSpeed)
+        if(speedCounter > 0)
         {
             speed = round(accel->period_us / (currentUnrealNumStepsPerPeriod * interrupterStep_us));
             currentUnrealNumStepsPerPeriod += accel->stepNumSteps;
+            speedCounter--;
         }
         else
             accelSuccess = true;
 
-        //MySerial->println(speed);
+            
         previousMillis = ms;  
     }
     return accelSuccess;
@@ -140,20 +144,9 @@ bool MyStepper::InternalMove(move_t* mv, point_t* pnt, step_t* dist, dir_t dir)
     bool refresh = false;
     if(phase == START)
     {
-        MySerial->print("bPtrOnTail_1_");
-        MySerial->println((int)bPtrOnTail);
-
         if(CheckNeedCountSteps(mv->finishAccel))
-        {
-            MySerial->print("bPtrOnTail_2_");
-            MySerial->println((int)bPtrOnTail);
-
             if(!CountSteps(mv->finishAccel))
                 return 0;
-        }
-
-        MySerial->print("bPtrOnTail_3_");
-        MySerial->println((int)bPtrOnTail);
 
         if(dist != nullptr)
         {
@@ -175,55 +168,52 @@ bool MyStepper::InternalMove(move_t* mv, point_t* pnt, step_t* dist, dir_t dir)
             return 0;
         }
 
-        currentLvl = bPtrOnTail;
+        currentLvl = bPtrOnHead;
 
-        // MySerial->print("currentLvl->speed_");
-        // MySerial->println(currentLvl->speed);
-        // MySerial->print("mv->startAccel->bgnSpeed_");
-        // MySerial->println(mv->startAccel->bgnSpeed);
-        // MySerial->println();
-
-        while(currentLvl->speed > mv->startAccel->bgnSpeed)
+        if(currentLvl->steps != 0)  //  in case "no deceleration"
         {
-            if(currentLvl->ptrOnNext == nullptr)
-                currentLvl = bPtrOnTail;
+            while(currentLvl->speed > mv->startAccel->bgnSpeed)
+            {
+                if(currentLvl->ptrOnPrev == nullptr)
+                    currentLvl = bPtrOnHead; // in case when finish speed less then start speed
 
-            currentLvl = currentLvl->ptrOnNext;
+                currentLvl = currentLvl->ptrOnPrev;
+            }
         }
-
+            
         InternalSetCurrentSpeed(this->direction,mv->startAccel->bgnSpeed);
         refresh = true;
-        MySerial->println("TO_PH_\"ACCELERATION_AND_GO\"");
         phase = ACCELERATION_AND_GO;
     }
     if(phase == ACCELERATION_AND_GO)
     {
-        InternalChangeSpeed(mv->startAccel,refresh);
+        bool normalBrake = InternalChangeSpeed(mv->startAccel,refresh);
 
-        if(speed > currentLvl->speed)
-            if(currentLvl->ptrOnNext != nullptr)
-                currentLvl = currentLvl->ptrOnNext;
+        if(currentLvl->steps != 0)  //  in case "no deceleration"
+            if(speed < currentLvl->speed)
+                if(currentLvl->ptrOnPrev != nullptr)
+                    currentLvl = currentLvl->ptrOnPrev;
+
 
         if(dist != NO_DISTANCE)
             if(currentStep + currentLvl->steps >= internalDistance)
             {
                 refresh = true;
-                MySerial->print("currentStep_");
-                MySerial->println(currentStep);
-                MySerial->print(currentLvl->speed);
-                MySerial->println(currentLvl->speed);
-                MySerial->print("currentLvl->steps_");
-                MySerial->println(currentLvl->steps);
-                MySerial->print("internalDistance_");
-                MySerial->println(internalDistance);
-                MySerial->println("TO_PH_\"DECELERATION\"");
+
+                if(normalBrake)
+                    ptrTmpAccel = mv->finishAccel;
+                else
+                {
+                    CountAccel(&tmpAccel,speed,mv->finishAccel->dstSpeed,currentLvl->time_ms);
+                    ptrTmpAccel = &tmpAccel;
+                }
                 phase = DECELERATION;
             }
     }
     if(phase == DECELERATION)
     {
-        if(InternalChangeSpeed(mv->finishAccel,refresh))
-            done = true;
+        if(InternalChangeSpeed(ptrTmpAccel,refresh))
+            done = true; 
     }
 
     return done;
@@ -247,7 +237,7 @@ void MyStepper::CountAccel(accel_t* accel, uint8_t bgnSpeed, uint8_t dstSpeed, u
     accel->time_ms = time_ms;
     accel->numPeriods = abs(bgnSpeed - dstSpeed);
 
-    if(bgnSpeed == dstSpeed)    // no acceleration
+    if((bgnSpeed == dstSpeed) || (time_ms == 0))    // no acceleration
     {
         accel->period_ms = 0;
         accel->period_us = 0;
@@ -269,11 +259,19 @@ void MyStepper::CountAccel(accel_t* accel, uint8_t bgnSpeed, uint8_t dstSpeed, u
 
 bool MyStepper::CountSteps(accel_t* accel)
 {
-    uint8_t curSpeed = accel->dstSpeed;                                        
-    uint16_t currentNumStepsPerPeriod = accel->dstNumStepsPerPeriod;
-    do                                                                      // Перебор происходит в сторону, обратную течению времени. От конца движения
-    {                                                                       // При торможении, значение accel->stepNumSteps будет отрицательным. Так как отсчёт идёт с конца, то есть с периода с меньшим числом шагов,
-        if((bPtrOnHead == nullptr) || (bPtrOnHead->speed != curSpeed))      // accel->stepNumSteps необходимо отнимать, чтобы двойным отрицанием прибавлять это значение
+    uint8_t curSpeed = accel->bgnSpeed;                                         
+    uint16_t currentNumStepsPerPeriod = accel->bgnNumStepsPerPeriod;            
+                                                                                
+    if(currentNumStepsPerPeriod == 0)   //  in case "no acceleration" currentNumStepsPerPeriod = 0
+    {
+        bPtrOnHead = bPtrOnTail = new brake_t {};
+        bPtrOnHead->steps = 0;
+        return 1;
+    }
+
+    do
+    {                                                                                                                       
+        if((bPtrOnHead == nullptr) || (bPtrOnHead->speed != curSpeed))                                                  
         {
             brake_t* node = new brake_t {};
             if(node == nullptr)
@@ -281,8 +279,7 @@ bool MyStepper::CountSteps(accel_t* accel)
                 Error(CANT_COUNT_BRAKE,this);
                 return 0;
             }
-
-            node->ptrOnPrev = bPtrOnHead;   // создаётся двусвязный список тк при записи (здесь) его необходимо проходить из конца в начало, а при работе наоборот
+            node->ptrOnPrev = bPtrOnHead;
             bPtrOnHead = node;
             bPtrOnHead->ptrOnNext = nullptr;
             if(bPtrOnTail == nullptr)
@@ -291,24 +288,26 @@ bool MyStepper::CountSteps(accel_t* accel)
                 bPtrOnHead->ptrOnPrev->ptrOnNext = bPtrOnHead;
 
             bPtrOnHead->speed = curSpeed;
-            if(bPtrOnHead->ptrOnPrev != nullptr)
-                bPtrOnHead->steps += bPtrOnHead->ptrOnPrev->steps;
-
-            // MySerial->println();
-            // MySerial->print("curSpeed_");
-            // MySerial->println(curSpeed);
-            // MySerial->println();
         }    
 
         bPtrOnHead->steps += accel->period_us / (curSpeed * interrupterStep_us);
-        
-        if(currentNumStepsPerPeriod != 0)   // in case "no acceleration" currentNumStepsPerPeriod = 0
-        {
-            curSpeed = round(accel->period_us / (currentNumStepsPerPeriod * interrupterStep_us));
-            currentNumStepsPerPeriod -= accel->stepNumSteps;
-        } 
+        bPtrOnHead->time_ms += accel->period_ms;
+
+        currentNumStepsPerPeriod += accel->stepNumSteps;
+        curSpeed = round(accel->period_us / (currentNumStepsPerPeriod * interrupterStep_us));          
     }
-    while(curSpeed != accel->bgnSpeed);
+    while(curSpeed < accel->dstSpeed);
+                                                        
+    if(bPtrOnHead->ptrOnPrev != nullptr)    // Суммирование шагов торможения, если уровней торможения больше, чем один
+    {
+        brake_t* node = bPtrOnHead;
+        do
+        {
+            node = node->ptrOnPrev;
+            node->steps += node->ptrOnNext->steps;
+            node->time_ms += node->ptrOnNext->time_ms;
+        } while (node->ptrOnPrev != nullptr);
+    }
     return 1;
 }
 
@@ -316,8 +315,8 @@ bool MyStepper::CheckNeedCountSteps(accel_t* accel)
 {
     if(lastFinishAccel != nullptr)
     {
-        if((accel->bgnSpeed == lastFinishAccel->bgnSpeed) && // если торможение при предыдущем движении было таким же, как и 
-           (accel->dstSpeed == lastFinishAccel->dstSpeed) && // при текущем движении, то перещитывать его не нужно
+        if((accel->bgnSpeed == lastFinishAccel->bgnSpeed) &&    // если торможение при предыдущем движении было таким же, как и 
+           (accel->dstSpeed == lastFinishAccel->dstSpeed) &&    // при текущем движении, то перещитывать его не нужно
            (accel->time_ms == lastFinishAccel->time_ms))
         {
             return 0;

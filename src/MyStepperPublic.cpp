@@ -8,7 +8,7 @@
         currentPtr = this;
         if(numSteppers == 0)
         {
-            interrupter = timerBegin(0,240,true); //ESP32 240MHz
+            interrupter = timerBegin(0,80,true);    //  80MHz (это APB_frequency, а не CPU_frequency)
             timerAttachInterrupt(interrupter,&MyStepper::Step,true);
             timerAlarmWrite(interrupter,interrupterStep_us,true);
             timerAlarmEnable(interrupter);
@@ -107,9 +107,9 @@ void MyStepper::SetPointInArea(point_t** setPtr, point_t* minEdge, point_t* maxE
 
 void MyStepper::SetMove(move_t** setPtr, uint8_t startSpeed, uint8_t workSpeed, uint8_t finishSpeed, uint16_t accelerationTime_ms, uint16_t decelerationTime_ms)
 {
-    if((startSpeed < workSpeed) && startSpeed != 0)              // In this case engine won't run. If you erase the error, 
-    {                                       // engine will work, but without breaked acceleration/deceleration,
-        Error(INCORRECT_MOVE_PARAMETERS);   // because flag noAccel will be turned ON.
+    if((startSpeed < workSpeed) && (startSpeed != 0))              // In this case engine won't run. If you erase the error, 
+    {                                                              // engine will work, but without breaked acceleration/deceleration,
+        Error(INCORRECT_MOVE_PARAMETERS);                          // because flag noAccel will be turned ON.
         startSpeed = workSpeed;
     }
     if(finishSpeed < workSpeed)
@@ -283,7 +283,7 @@ void MyStepper::Stop()
 {
     moveFlag = false;
     stopFlag = true;
-    speed = 255;
+    speed = 0;
     if(freeStay)
         digitalWrite(enPin, true);
 }

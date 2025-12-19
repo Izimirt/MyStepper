@@ -45,6 +45,7 @@ typedef struct pnt
 
 typedef struct br
 {
+    uint32_t time_ms = 0;
     uint32_t steps = 0;
     uint8_t speed = 0;
 

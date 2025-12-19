@@ -32,11 +32,13 @@ class MyStepper
         uint16_t timer = 0;
 
         // for ChangeSpeed()
-        uint16_t currentUnrealNumStepsPerPeriod;             
+        uint16_t currentUnrealNumStepsPerPeriod;    
+        uint8_t speedCounter = 0;         
 
         // for Move()
         phase_t phase = START;
         accel_t tmpAccel;
+        accel_t* ptrTmpAccel = nullptr;
         accel_t* lastFinishAccel = nullptr;
         brake_t* currentLvl;
         bool accelSuccess = false;
@@ -82,8 +84,8 @@ class MyStepper
 
         bool InternalMove(move_t* mv,
                           point_t* pnt = nullptr,     // for MoveToPiont()
-                          step_t* dist = nullptr,   // for Move()
-                          dir_t dir = FWD);       // for Move()
+                          step_t* dist = nullptr,     // for Move()
+                          dir_t dir = FWD);           // for Move()
 
         void InternalRefresh();
 
@@ -176,7 +178,8 @@ class MyStepper
         /// @return in BIN (младшие три бита это номер ошибки, начиная с 1, старшие 5 бит это ID двигателя, начиная с 1)
         /// Примеры:
         /// 0b00011001 - ошибка номер 1, двигатель с ID = 3
-        /// 0b000010010 - ошибка номер 2, двигатель с ID = 1
+        /// 0b00010010 - ошибка номер 2, двигатель с ID = 1
+        /// 0b00000111 - ошибка номер 7, общая, ID = 0
         static uint8_t GetError(MyStepper* unit = nullptr);
 
         uint32_t GetCurrentStep();
