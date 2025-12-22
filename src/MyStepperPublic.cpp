@@ -328,12 +328,14 @@ bool MyStepper::GetFinish()
     return finishFlag;
 }
 
-uint8_t MyStepper::GetError(MyStepper* unit)
+uint8_t MyStepper::GetError()
 {
-    if(unit != nullptr)
-        return unit->errorCommand;
-    else 
-        return staticErrorCommand;
+    return errorCommand;
+}
+
+uint8_t MyStepper::GetStaticError()
+{
+    return staticErrorCommand;
 }
 
 uint32_t MyStepper::GetCurrentStep()

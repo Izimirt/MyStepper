@@ -27,15 +27,13 @@ class MyStepper
 
         bool stepState = false;
         uint8_t speed;
-        uint32_t previousMillis;
+        uint32_t previousMs;
         uint32_t accelerationSteps = 0;
         uint16_t timer = 0;
 
-        // for ChangeSpeed()
         uint16_t currentUnrealNumStepsPerPeriod;    
         uint8_t speedCounter = 0;         
 
-        // for Move()
         phase_t phase = START;
         accel_t tmpAccel;
         accel_t* ptrTmpAccel = nullptr;
@@ -55,17 +53,17 @@ class MyStepper
         brake_t* bPtrOnHead = nullptr;
         brake_t* bPtrOnTail = nullptr;
 
-        MyStepper* ptrOnOther;
-        uint8_t ID;
-
         uint8_t errorCommand = 0;
         static uint8_t staticErrorCommand;
         void (*ExError)(void*) = nullptr;
         static void (*CommonExError)(void*);
         bool ignoreCommonExError = false;
 
+        uint8_t ID;
         static uint8_t numSteppers;
         static uint8_t interrupterStep_us;
+
+        MyStepper* ptrOnOther;
         static MyStepper* currentPtr;
         static MyStepper* unitPtr;
 
@@ -179,8 +177,11 @@ class MyStepper
         /// Примеры:
         /// 0b00011001 - ошибка номер 1, двигатель с ID = 3
         /// 0b00010010 - ошибка номер 2, двигатель с ID = 1
+        uint8_t GetError();
+
+        /// Пример:
         /// 0b00000111 - ошибка номер 7, общая, ID = 0
-        static uint8_t GetError(MyStepper* unit = nullptr);
+        static uint8_t GetStaticError();
 
         uint32_t GetCurrentStep();
 

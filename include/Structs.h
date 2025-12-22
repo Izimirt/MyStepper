@@ -16,7 +16,6 @@ typedef struct
     uint16_t dstNumStepsPerPeriod;
     int16_t stepNumSteps;
     uint8_t numPeriods;
-    //bool fromCurrent = false;
 } accel_t;
 
 typedef struct 
@@ -51,5 +50,4 @@ typedef struct br
 
     br* ptrOnNext = nullptr;
     br* ptrOnPrev = nullptr;
-
 } brake_t;

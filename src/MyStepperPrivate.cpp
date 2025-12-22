@@ -119,9 +119,9 @@ bool MyStepper::InternalChangeSpeed(accel_t* accel, bool refresh)
         return 1;
 
     uint32_t ms = millis();
-    if(previousMillis > ms)
-        previousMillis = ms;
-    if(ms >= previousMillis + accel->period_ms)
+    if(previousMs > ms)
+        previousMs = ms;
+    if(ms >= previousMs + accel->period_ms)
     {
         if(speedCounter > 0)
         {
@@ -133,7 +133,7 @@ bool MyStepper::InternalChangeSpeed(accel_t* accel, bool refresh)
             accelSuccess = true;
 
             
-        previousMillis = ms;  
+        previousMs = ms;  
     }
     return accelSuccess;
 }
