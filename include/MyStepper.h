@@ -8,92 +8,6 @@
 
 class MyStepper 
 {
-    private:
-        
-        uint16_t stepPin;
-        uint16_t dirPin;
-        uint16_t enPin;
-        bool freeStay;
-
-        uint32_t currentStep = 0;
-        int32_t currentPoint = 0;
-        dir_t direction;
-
-        bool moveFlag = false;
-        bool finishFlag = false;
-        bool brakeFlag = false;
-        bool manualFlag = false;
-        bool stopFlag = false;
-
-        bool stepState = false;
-        uint8_t speed;
-        uint32_t previousMs;
-        uint32_t accelerationSteps = 0;
-        uint16_t timer = 0;
-
-        uint16_t currentUnrealNumStepsPerPeriod;    
-        uint8_t speedCounter = 0;         
-
-        phase_t phase = START;
-        accel_t tmpAccel;
-        accel_t* ptrTmpAccel = nullptr;
-        accel_t* lastFinishAccel = nullptr;
-        brake_t* currentLvl;
-        bool accelSuccess = false;
-        uint32_t internalDistance;
-
-        uint8_t prevDstSpeed = 0;
-        uint32_t prevTime_ms = 0;
-        dir_t prevDirection;
-        move_t* prevMove = nullptr;
-        step_t* prevDistance = nullptr;
-        point_t* prevPoint = nullptr;
-
-        point_t* pPtrOnHead = nullptr;
-        brake_t* bPtrOnHead = nullptr;
-        brake_t* bPtrOnTail = nullptr;
-
-        uint8_t errorCommand = 0;
-        static uint8_t staticErrorCommand;
-        void (*ExError)(void*) = nullptr;
-        static void (*CommonExError)(void*);
-        bool ignoreCommonExError = false;
-
-        uint8_t ID;
-        static uint8_t numSteppers;
-        static uint8_t interrupterStep_us;
-
-        MyStepper* ptrOnOther;
-        static MyStepper* currentPtr;
-        static MyStepper* unitPtr;
-
-        static HardwareSerial* MySerial;
-
-        #ifdef ESP32
-            static hw_timer_t* interrupter;
-            static void Step();
-        #endif
-
-        static void Error(err_t error, MyStepper* unit = nullptr);
-
-        void InternalSetCurrentSpeed(dir_t dir, uint8_t currentSpeed);
-
-        bool InternalChangeSpeed(accel_t* accel, bool refresh);
-
-        bool InternalMove(move_t* mv,
-                          point_t* pnt = nullptr,     // for MoveToPiont()
-                          step_t* dist = nullptr,     // for Move()
-                          dir_t dir = FWD);           // for Move()
-
-        void InternalRefresh();
-
-        /// @brief This function is counting acceleration parameters for laiter counts.
-        static void CountAccel(accel_t* accel, uint8_t bgnSpeed,uint8_t dstSpeed, uint32_t time_ms);
-
-        bool CountSteps(accel_t* accel);
-
-        bool CheckNeedCountSteps(accel_t* accel);
-
     public:
 
         MyStepper();
@@ -191,7 +105,9 @@ class MyStepper
 
         uint8_t GetID();
 
-        static void CleanError(MyStepper* unit = nullptr);
+        void CleanError();
+
+        static void CleanStaticError();
 
         static void CleanAllErrors();
 
@@ -199,4 +115,90 @@ class MyStepper
             static void Step();
             static void StartInterrupter();
         #endif
+
+    private:
+
+        #ifdef ESP32
+            static hw_timer_t* interrupter;
+            static void Step();
+        #endif
+
+        static void Error(err_t error, MyStepper* unit = nullptr);
+
+        void InternalSetCurrentSpeed(dir_t dir, uint8_t currentSpeed);
+
+        bool InternalChangeSpeed(accel_t* accel, bool refresh);
+
+        bool InternalMove(move_t* mv,
+                          point_t* pnt = nullptr,     // for MoveToPiont()
+                          step_t* dist = nullptr,     // for Move()
+                          dir_t dir = FWD);           // for Move()
+
+        void InternalRefresh();
+
+        /// @brief This function is counting acceleration parameters for laiter counts.
+        static void CountAccel(accel_t* accel, uint8_t bgnSpeed,uint8_t dstSpeed, uint32_t time_ms);
+
+        bool CountSteps(accel_t* accel);
+
+        bool CheckNeedCountSteps(accel_t* accel);
+        
+        uint16_t stepPin;
+        uint16_t dirPin;
+        uint16_t enPin;
+        bool freeStay;
+
+        uint32_t currentStep = 0;
+        int32_t currentPoint = 0;
+        dir_t direction;
+
+        bool moveFlag = false;
+        bool finishFlag = false;
+        bool brakeFlag = false;
+        bool manualFlag = false;
+        bool stopFlag = false;
+
+        bool stepState = false;
+        uint8_t speed;
+        uint32_t previousMs;
+        uint32_t accelerationSteps = 0;
+        uint16_t timer = 0;
+
+        uint16_t currentUnrealNumStepsPerPeriod;    
+        uint8_t speedCounter = 0;         
+
+        phase_t phase = START;
+        accel_t tmpAccel;
+        accel_t* ptrTmpAccel = nullptr;
+        accel_t* lastFinishAccel = nullptr;
+        brake_t* currentLvl;
+        bool accelSuccess = false;
+        uint32_t internalDistance;
+
+        uint8_t prevDstSpeed = 0;
+        uint32_t prevTime_ms = 0;
+        dir_t prevDirection;
+        move_t* prevMove = nullptr;
+        step_t* prevDistance = nullptr;
+        point_t* prevPoint = nullptr;
+
+        point_t* pPtrOnHead = nullptr;
+        brake_t* bPtrOnHead = nullptr;
+        brake_t* bPtrOnTail = nullptr;
+
+        uint8_t errorCommand = 0;
+        static uint8_t staticErrorCommand;
+        void (*ExError)(void*) = nullptr;
+        static void (*CommonExError)(void*);
+        bool ignoreCommonExError = false;
+
+        uint8_t ID;
+        static uint8_t numSteppers;
+        static uint8_t interrupterStep_us;
+
+        MyStepper* ptrOnOther;
+        static MyStepper* currentPtr;
+        static MyStepper* unitPtr;
+
+        static HardwareSerial* MySerial;
 };

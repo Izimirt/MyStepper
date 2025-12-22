@@ -358,12 +358,14 @@ uint8_t MyStepper::GetID()
     return ID;
 }
 
-void MyStepper::CleanError(MyStepper* unit)
+void MyStepper::CleanError()
 {
-    if(unit != nullptr)
-        unit->errorCommand = 0;
-    else
-        staticErrorCommand = 0;
+    errorCommand = 0;
+}
+
+void MyStepper::CleanStaticError()
+{
+    staticErrorCommand = 0;
 }
 
 void MyStepper::CleanAllErrors()
@@ -371,8 +373,8 @@ void MyStepper::CleanAllErrors()
     MyStepper* ptr = currentPtr;
     while(ptr != nullptr)
     {
-        CleanError(ptr);
+        ptr->CleanError();
         ptr = ptr->ptrOnOther;
     }
-    CleanError();
+    CleanStaticError();
 }
