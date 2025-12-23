@@ -2,8 +2,8 @@
 
 #include <Arduino.h>
 
-#define NO_DISTANCE (step_t*)(1)
-#define NO_POINT (point_t*)(1)
+#define NO_DISTANCE (st_step_t*)(1)
+#define NO_POINT (st_point_t*)(1)
 
 typedef struct
 {
@@ -16,20 +16,20 @@ typedef struct
     uint16_t dstNumStepsPerPeriod;
     int16_t stepNumSteps;
     uint8_t numPeriods;
-} accel_t;
+} st_accel_t;
 
 typedef struct 
 {
-    accel_t* startAccel;
-    accel_t* finishAccel;
-} move_t;
+    st_accel_t* startAccel;
+    st_accel_t* finishAccel;
+} st_move_t;
 
 typedef struct
 {
     uint32_t steps = 0;
     uint32_t understeps = 0;
     uint32_t oversteps = 0;
-} step_t;
+} st_step_t;
 
 typedef struct pnt
 {
@@ -40,7 +40,7 @@ typedef struct pnt
 
     uint16_t pointNumber;
     pnt* ptrOnPrev = nullptr;
-} point_t;
+} st_point_t;
 
 typedef struct br
 {
@@ -50,4 +50,4 @@ typedef struct br
 
     br* ptrOnNext = nullptr;
     br* ptrOnPrev = nullptr;
-} brake_t;
+} st_brake_t;

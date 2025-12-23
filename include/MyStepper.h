@@ -12,31 +12,31 @@ class MyStepper
 
         MyStepper();
 
-        MyStepper(uint16_t stepPin,
-                  uint16_t dirPin,
-                  uint16_t enPin,
+        MyStepper(uint8_t stepPin,
+                  uint8_t dirPin,
+                  uint8_t enPin,
                   bool freeStay);
 
-        void SetEngine(uint16_t stepPin,
-                       uint16_t dirPin,
-                       uint16_t enPin,
+        void SetEngine(uint8_t stepPin,
+                       uint8_t dirPin,
+                       uint8_t enPin,
                        bool freeStay);
 
-        static void SetSteps(step_t* set,
+        static void SetSteps(st_step_t** setPtr,
                              uint32_t steps,
                              uint32_t understeps = 0,
                              uint32_t oversteps = 0);
 
-        void SetPoint(point_t** setPtr,
+        void SetPoint(st_point_t** setPtr,
                       int32_t point,
                       int32_t understeps = 0,
                       int32_t oversteps = 0,
                       bool noUndersteps = false,
                       uint16_t pointNumber = 0);
 
-        void SetPointInArea(point_t** setPtr,
-                            point_t* minEdge,
-                            point_t* maxEdge,
+        void SetPointInArea(st_point_t** setPtr,
+                            st_point_t* minEdge,
+                            st_point_t* maxEdge,
                             int32_t point,
                             int32_t understeps = 0,
                             int32_t oversteps = 0,
@@ -44,7 +44,7 @@ class MyStepper
                             uint16_t pointNumber = 0);
 
         /// @param maxSpeed (minSpeed) Количество циклов engine_step_micros = ширина шага(чем длиннее шаг, тем медленнее вращается мотор) (engine_step_micros = 10 microseconds)
-        static void SetMove(move_t** setPtr,
+        static void SetMove(st_move_t** setPtr,
                             uint8_t startSpeed,
                             uint8_t workSpeed,
                             uint8_t finishSpeed,
@@ -58,18 +58,18 @@ class MyStepper
         static void SetCommonErrorHandler(void (*ExError)(void*));
 
         /// @param interrupter Как правило"PinObject.AntirattleSensor() > time"
-        bool Move(dir_t dir,
-                  move_t* mv,
-                  step_t* dist = NO_DISTANCE,
+        bool Move(st_dir_t dir,
+                  st_move_t* mv,
+                  st_step_t* dist = NO_DISTANCE,
                   int8_t interrupter = -1);
 
         /// @param interrupter Как правило"PinObject.AntirattleSensor() > time"
-        bool MoveToPoint(point_t* pnt,
-                         move_t* mv,
+        bool MoveToPoint(st_point_t* pnt,
+                         st_move_t* mv,
                          int8_t interrupter = -1);
 
         /// @param momentalSpeed Количество циклов engine_step_micros = ширина шага(чем длиннее шаг, тем медленнее вращается мотор) (engine_step_micros = 10 microseconds)
-        void SetCurrentSpeed(dir_t dir,
+        void SetCurrentSpeed(st_dir_t dir,
                              uint8_t currentSpeed);
 
         /// @param funcID Values 254,255 are reserved. In case you will use it, function will immediately return 0.
@@ -123,34 +123,34 @@ class MyStepper
             static void Step();
         #endif
 
-        static void Error(err_t error, MyStepper* unit = nullptr);
+        static void Error(st_err_t error, MyStepper* unit = nullptr);
 
-        void InternalSetCurrentSpeed(dir_t dir, uint8_t currentSpeed);
+        void InternalSetCurrentSpeed(st_dir_t dir, uint8_t currentSpeed);
 
-        bool InternalChangeSpeed(accel_t* accel, bool refresh);
+        bool InternalChangeSpeed(st_accel_t* accel, bool refresh);
 
-        bool InternalMove(move_t* mv,
-                          point_t* pnt = nullptr,     // for MoveToPiont()
-                          step_t* dist = nullptr,     // for Move()
-                          dir_t dir = FWD);           // for Move()
+        bool InternalMove(st_move_t* mv,
+                          st_point_t* pnt = nullptr,     // for MoveToPiont()
+                          st_step_t* dist = nullptr,     // for Move()
+                          st_dir_t dir = FWD);           // for Move()
 
         void InternalRefresh();
 
         /// @brief This function is counting acceleration parameters for laiter counts.
-        static void CountAccel(accel_t* accel, uint8_t bgnSpeed,uint8_t dstSpeed, uint32_t time_ms);
+        static void CountAccel(st_accel_t* accel, uint8_t bgnSpeed,uint8_t dstSpeed, uint32_t time_ms);
 
-        bool CountSteps(accel_t* accel);
+        bool CountSteps(st_accel_t* accel);
 
-        bool CheckNeedCountSteps(accel_t* accel);
+        bool CheckNeedCountSteps(st_accel_t* accel);
         
-        uint16_t stepPin;
-        uint16_t dirPin;
-        uint16_t enPin;
+        uint8_t stepPin;
+        uint8_t dirPin;
+        uint8_t enPin;
         bool freeStay;
 
         uint32_t currentStep = 0;
         int32_t currentPoint = 0;
-        dir_t direction;
+        st_dir_t direction;
 
         bool moveFlag = false;
         bool finishFlag = false;
@@ -167,24 +167,24 @@ class MyStepper
         uint16_t currentUnrealNumStepsPerPeriod;    
         uint8_t speedCounter = 0;         
 
-        phase_t phase = START;
-        accel_t tmpAccel;
-        accel_t* ptrTmpAccel = nullptr;
-        accel_t* lastFinishAccel = nullptr;
-        brake_t* currentLvl;
+        st_phase_t phase = START;
+        st_accel_t tmpAccel;
+        st_accel_t* ptrTmpAccel = nullptr;
+        st_accel_t* lastFinishAccel = nullptr;
+        st_brake_t* currentLvl;
         bool accelSuccess = false;
         uint32_t internalDistance;
 
         uint8_t prevDstSpeed = 0;
         uint32_t prevTime_ms = 0;
-        dir_t prevDirection;
-        move_t* prevMove = nullptr;
-        step_t* prevDistance = nullptr;
-        point_t* prevPoint = nullptr;
+        st_dir_t prevDirection;
+        st_move_t* prevMove = nullptr;
+        st_step_t* prevDistance = nullptr;
+        st_point_t* prevPoint = nullptr;
 
-        point_t* pPtrOnHead = nullptr;
-        brake_t* bPtrOnHead = nullptr;
-        brake_t* bPtrOnTail = nullptr;
+        st_point_t* pPtrOnHead = nullptr;
+        st_brake_t* bPtrOnHead = nullptr;
+        st_brake_t* bPtrOnTail = nullptr;
 
         uint8_t errorCommand = 0;
         static uint8_t staticErrorCommand;

@@ -9,17 +9,17 @@ typedef enum
     INCORRECT_MOVE_PARAMETERS = 0b101,
     UNKNOWN_DISTANCE = 0b110,
     UNAVAILABLE_POINT = 0b111
-} err_t;
+} st_err_t;
 
 typedef enum
 {
     START,
     ACCELERATION_AND_GO,
     DECELERATION
-} phase_t;
+} st_phase_t;
 
 typedef enum
 {
     BWD,
     FWD
-} dir_t;
+} st_dir_t;

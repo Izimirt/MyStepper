@@ -85,7 +85,7 @@ MyStepper* MyStepper::unitPtr = nullptr;
 
 HardwareSerial* MyStepper::MySerial = nullptr;
 
-void MyStepper::InternalSetCurrentSpeed(dir_t dir, uint8_t currentSpeed)
+void MyStepper::InternalSetCurrentSpeed(st_dir_t dir, uint8_t currentSpeed)
 {
     moveFlag = true;
     this->direction = dir;
@@ -97,7 +97,7 @@ void MyStepper::InternalSetCurrentSpeed(dir_t dir, uint8_t currentSpeed)
     speed = currentSpeed;
 }
 
-bool MyStepper::InternalChangeSpeed(accel_t* accel, bool refresh)
+bool MyStepper::InternalChangeSpeed(st_accel_t* accel, bool refresh)
 {
     if(refresh)
     {
@@ -111,7 +111,7 @@ bool MyStepper::InternalChangeSpeed(accel_t* accel, bool refresh)
         }
 
         accelSuccess = false;
-        speedCounter = accel->numPeriods + 1;
+        speedCounter = accel->numPeriods + 1; // +1 нужен тк в первой итерации выставляется начальная скорость
         currentUnrealNumStepsPerPeriod = accel->bgnNumStepsPerPeriod;
     }
 
@@ -138,7 +138,7 @@ bool MyStepper::InternalChangeSpeed(accel_t* accel, bool refresh)
     return accelSuccess;
 }
 
-bool MyStepper::InternalMove(move_t* mv, point_t* pnt, step_t* dist, dir_t dir)
+bool MyStepper::InternalMove(st_move_t* mv, st_point_t* pnt, st_step_t* dist, st_dir_t dir)
 {
     bool done = false;
     bool refresh = false;
@@ -225,7 +225,7 @@ void MyStepper::InternalRefresh()
     phase = START;
 }
 
-void MyStepper::CountAccel(accel_t* accel, uint8_t bgnSpeed, uint8_t dstSpeed, uint32_t time_ms)
+void MyStepper::CountAccel(st_accel_t* accel, uint8_t bgnSpeed, uint8_t dstSpeed, uint32_t time_ms)
 {
     if(dstSpeed == 0)
         dstSpeed = 255;
@@ -257,14 +257,14 @@ void MyStepper::CountAccel(accel_t* accel, uint8_t bgnSpeed, uint8_t dstSpeed, u
     }
 }
 
-bool MyStepper::CountSteps(accel_t* accel)
+bool MyStepper::CountSteps(st_accel_t* accel)
 {
     uint8_t curSpeed = accel->bgnSpeed;                                         
     uint16_t currentNumStepsPerPeriod = accel->bgnNumStepsPerPeriod;            
                                                                                 
     if(currentNumStepsPerPeriod == 0)   //  in case "no acceleration" currentNumStepsPerPeriod = 0
     {
-        bPtrOnHead = bPtrOnTail = new brake_t {};
+        bPtrOnHead = bPtrOnTail = new st_brake_t {};
         bPtrOnHead->steps = 0;
         return 1;
     }
@@ -273,7 +273,7 @@ bool MyStepper::CountSteps(accel_t* accel)
     {                                                                                                                       
         if((bPtrOnHead == nullptr) || (bPtrOnHead->speed != curSpeed))                                                  
         {
-            brake_t* node = new brake_t {};
+            st_brake_t* node = new st_brake_t {};
             if(node == nullptr)
             {
                 Error(CANT_COUNT_BRAKE,this);
@@ -300,7 +300,7 @@ bool MyStepper::CountSteps(accel_t* accel)
                                                         
     if(bPtrOnHead->ptrOnPrev != nullptr)    //  Here we're summing steps, that engine do, while braking in case when we have several brake levels (not one)
     {
-        brake_t* node = bPtrOnHead;
+        st_brake_t* node = bPtrOnHead;
         do
         {
             node = node->ptrOnPrev;
@@ -311,7 +311,7 @@ bool MyStepper::CountSteps(accel_t* accel)
     return 1;
 }
 
-bool MyStepper::CheckNeedCountSteps(accel_t* accel)
+bool MyStepper::CheckNeedCountSteps(st_accel_t* accel)
 {
     if(lastFinishAccel != nullptr)
     {
@@ -324,7 +324,7 @@ bool MyStepper::CheckNeedCountSteps(accel_t* accel)
     }
     lastFinishAccel = accel;
 
-    brake_t* node;
+    st_brake_t* node;
     while(bPtrOnHead != nullptr)                               // This is the deleting of a previous braking, in case we need to recount it
     {
         node = bPtrOnHead;
@@ -336,7 +336,7 @@ bool MyStepper::CheckNeedCountSteps(accel_t* accel)
     return 1;
 }
 
-void MyStepper::Error(err_t error, MyStepper* unit)
+void MyStepper::Error(st_err_t error, MyStepper* unit)
 {
     uint8_t err = (uint8_t)error;
     if(unit != nullptr)

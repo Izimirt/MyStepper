@@ -38,12 +38,12 @@
 
 #endif
 
-MyStepper::MyStepper(uint16_t stepPin, uint16_t dirPin, uint16_t enPin, bool freeStay) : MyStepper()
+MyStepper::MyStepper(uint8_t stepPin, uint8_t dirPin, uint8_t enPin, bool freeStay) : MyStepper()
 {
     SetEngine(stepPin,dirPin,enPin,freeStay);
 }
 
-void MyStepper::SetEngine(uint16_t stepPin, uint16_t dirPin, uint16_t enPin, bool freeStay)
+void MyStepper::SetEngine(uint8_t stepPin, uint8_t dirPin, uint8_t enPin, bool freeStay)
 {
     this-> stepPin = stepPin;
     this-> dirPin = dirPin;
@@ -58,21 +58,21 @@ void MyStepper::SetEngine(uint16_t stepPin, uint16_t dirPin, uint16_t enPin, boo
         digitalWrite(enPin, false);
 }
 
-void MyStepper::SetSteps(step_t* set, uint32_t steps, uint32_t understeps, uint32_t oversteps)
-{
-    if(set == nullptr)
-        set = new step_t;
-    if(understeps == 0)
-        understeps = steps;
-    set->steps = steps;
-    set->understeps = understeps;
-    set->oversteps = oversteps;
-}
-
-void MyStepper::SetPoint(point_t** setPtr, int32_t point, int32_t understeps, int32_t oversteps, bool noUndersteps, uint16_t pointNumber)
+void MyStepper::SetSteps(st_step_t** setPtr, uint32_t steps, uint32_t understeps, uint32_t oversteps)
 {
     if(*setPtr == nullptr)
-        *setPtr = new point_t;
+        *setPtr = new st_step_t;
+    if(understeps == 0)
+        understeps = steps;
+    (*setPtr)->steps = steps;
+    (*setPtr)->understeps = understeps;
+    (*setPtr)->oversteps = oversteps;
+}
+
+void MyStepper::SetPoint(st_point_t** setPtr, int32_t point, int32_t understeps, int32_t oversteps, bool noUndersteps, uint16_t pointNumber)
+{
+    if(*setPtr == nullptr)
+        *setPtr = new st_point_t;
     (*setPtr)->ptrOnPrev = pPtrOnHead;
     pPtrOnHead =  *setPtr;
     (*setPtr)->pointNumber = pointNumber;
@@ -84,7 +84,7 @@ void MyStepper::SetPoint(point_t** setPtr, int32_t point, int32_t understeps, in
     (*setPtr)->oversteps = oversteps;
 }
 
-void MyStepper::SetPointInArea(point_t** setPtr, point_t* minEdge, point_t* maxEdge, int32_t point, int32_t understeps, int32_t oversteps, bool noUndersteps, uint16_t pointNumber)
+void MyStepper::SetPointInArea(st_point_t** setPtr, st_point_t* minEdge, st_point_t* maxEdge, int32_t point, int32_t understeps, int32_t oversteps, bool noUndersteps, uint16_t pointNumber)
 {
     if((minEdge == NO_POINT) && (maxEdge == NO_POINT))
     {
@@ -105,7 +105,7 @@ void MyStepper::SetPointInArea(point_t** setPtr, point_t* minEdge, point_t* maxE
     SetPoint(setPtr,point,understeps,oversteps,noUndersteps,pointNumber);
 }
 
-void MyStepper::SetMove(move_t** setPtr, uint8_t startSpeed, uint8_t workSpeed, uint8_t finishSpeed, uint16_t accelerationTime_ms, uint16_t decelerationTime_ms)
+void MyStepper::SetMove(st_move_t** setPtr, uint8_t startSpeed, uint8_t workSpeed, uint8_t finishSpeed, uint16_t accelerationTime_ms, uint16_t decelerationTime_ms)
 {
     if((startSpeed < workSpeed) && (startSpeed != 0))              // In this case engine won't run. If you erase the error, 
     {                                                              // engine will work, but without breaked acceleration/deceleration,
@@ -118,9 +118,11 @@ void MyStepper::SetMove(move_t** setPtr, uint8_t startSpeed, uint8_t workSpeed, 
         finishSpeed = workSpeed;
     }
     if(*setPtr == nullptr)
-        *setPtr = new move_t;
-    (*setPtr)->startAccel = new accel_t{};
-    (*setPtr)->finishAccel = new accel_t{};
+    {
+        *setPtr = new st_move_t;
+        (*setPtr)->startAccel = new st_accel_t{};
+        (*setPtr)->finishAccel = new st_accel_t{};  
+    }
     CountAccel((*setPtr)->startAccel,startSpeed,workSpeed,accelerationTime_ms);
     CountAccel((*setPtr)->finishAccel,workSpeed,finishSpeed,decelerationTime_ms);
 }
@@ -141,7 +143,7 @@ void MyStepper::SetErrorHandler(void (*ExError)(void*), bool ignoreCommonExError
     this->ignoreCommonExError = ignoreCommonExError;
 }
 
-bool MyStepper::Move(dir_t dir, move_t* mv, step_t* dist, int8_t interrupter)
+bool MyStepper::Move(st_dir_t dir, st_move_t* mv, st_step_t* dist, int8_t interrupter)
 {
     if(manualFlag)
         return 0;
@@ -206,7 +208,7 @@ bool MyStepper::Move(dir_t dir, move_t* mv, step_t* dist, int8_t interrupter)
     return 0;
 }
 
-bool MyStepper::MoveToPoint(point_t* pnt, move_t* mv, int8_t interrupter)
+bool MyStepper::MoveToPoint(st_point_t* pnt, st_move_t* mv, int8_t interrupter)
 {
     if(manualFlag)
         return 0;
@@ -258,7 +260,7 @@ bool MyStepper::MoveToPoint(point_t* pnt, move_t* mv, int8_t interrupter)
     return 0;
 }
 
-void MyStepper::SetCurrentSpeed(dir_t dir, uint8_t currentSpeed)
+void MyStepper::SetCurrentSpeed(st_dir_t dir, uint8_t currentSpeed)
 {
     manualFlag = true;
     InternalSetCurrentSpeed(dir,currentSpeed);
