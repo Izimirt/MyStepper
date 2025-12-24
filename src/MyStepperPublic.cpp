@@ -118,13 +118,10 @@ void MyStepper::SetMove(st_move_t** setPtr, uint8_t startSpeed, uint8_t workSpee
         finishSpeed = workSpeed;
     }
     if(*setPtr == nullptr)
-    {
         *setPtr = new st_move_t;
-        (*setPtr)->startAccel = new st_accel_t{};
-        (*setPtr)->finishAccel = new st_accel_t{};  
-    }
-    CountAccel((*setPtr)->startAccel,startSpeed,workSpeed,accelerationTime_ms);
-    CountAccel((*setPtr)->finishAccel,workSpeed,finishSpeed,decelerationTime_ms);
+ 
+    CountAccel(&((*setPtr)->startAccel),startSpeed,workSpeed,accelerationTime_ms);
+    CountAccel(&((*setPtr)->finishAccel),workSpeed,finishSpeed,decelerationTime_ms);
 }
 void MyStepper::SetCommonErrorHandler(void (*ExError)(void *))
 {
@@ -274,11 +271,11 @@ bool MyStepper::ChangeSpeed(uint8_t dstSpeed, uint32_t time_ms)
 
     if((dstSpeed != prevDstSpeed) || (time_ms != prevTime_ms))
     {
-        CountAccel(&tmpAccel,speed,dstSpeed,time_ms);
+        CountAccel(&ptrTmpAccel,speed,dstSpeed,time_ms);
         refresh = true;
     }
 
-    return InternalChangeSpeed(&tmpAccel,refresh);
+    return InternalChangeSpeed(ptrTmpAccel,refresh);
 }
 
 void MyStepper::Stop()

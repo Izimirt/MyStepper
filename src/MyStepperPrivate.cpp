@@ -203,10 +203,8 @@ bool MyStepper::InternalMove(st_move_t* mv, st_point_t* pnt, st_step_t* dist, st
                 if(normalBrake)
                     ptrTmpAccel = mv->finishAccel;
                 else
-                {
-                    CountAccel(&tmpAccel,speed,mv->finishAccel->dstSpeed,currentLvl->time_ms);
-                    ptrTmpAccel = &tmpAccel;
-                }
+                    CountAccel(&ptrTmpAccel,speed,mv->finishAccel->dstSpeed,currentLvl->time_ms);
+                    
                 phase = DECELERATION;
             }
     }
@@ -225,35 +223,38 @@ void MyStepper::InternalRefresh()
     phase = START;
 }
 
-void MyStepper::CountAccel(st_accel_t* accel, uint8_t bgnSpeed, uint8_t dstSpeed, uint32_t time_ms)
+void MyStepper::CountAccel(st_accel_t** accelPtr, uint8_t bgnSpeed, uint8_t dstSpeed, uint32_t time_ms)
 {
+    if(*accelPtr == nullptr)
+        *accelPtr = new st_accel_t{};
+
     if(dstSpeed == 0)
         dstSpeed = 255;
     if(bgnSpeed == 0)           
         bgnSpeed = 255;   
 
-    accel->bgnSpeed = bgnSpeed;
-    accel->dstSpeed = dstSpeed;
-    accel->time_ms = time_ms;
-    accel->numPeriods = abs(bgnSpeed - dstSpeed);
+    (*accelPtr)->bgnSpeed = bgnSpeed;
+    (*accelPtr)->dstSpeed = dstSpeed;
+    (*accelPtr)->time_ms = time_ms;
+    (*accelPtr)->numPeriods = abs(bgnSpeed - dstSpeed);
 
     if((bgnSpeed == dstSpeed) || (time_ms == 0))    // no acceleration
     {
-        accel->period_ms = 0;
-        accel->period_us = 0;
-        accel->bgnNumStepsPerPeriod = 0;
-        accel->dstNumStepsPerPeriod = 0;
-        accel->stepNumSteps = 0;
+        (*accelPtr)->period_ms = 0;
+        (*accelPtr)->period_us = 0;
+        (*accelPtr)->bgnNumStepsPerPeriod = 0;
+        (*accelPtr)->dstNumStepsPerPeriod = 0;
+        (*accelPtr)->stepNumSteps = 0;
     }
     else
     {
-        accel->period_ms = (time_ms / accel->numPeriods);
-        if(accel->period_ms < 1)
-            accel->period_ms = 1;
-        accel->period_us = accel->period_ms * 1000UL;
-        accel->bgnNumStepsPerPeriod = accel->period_us / (uint16_t)(interrupterStep_us * bgnSpeed);
-        accel->dstNumStepsPerPeriod = accel->period_us / (uint16_t)(interrupterStep_us * dstSpeed);
-        accel->stepNumSteps = (accel->dstNumStepsPerPeriod - accel->bgnNumStepsPerPeriod) / accel->numPeriods;
+        (*accelPtr)->period_ms = (time_ms / (*accelPtr)->numPeriods);
+        if((*accelPtr)->period_ms < 1)
+            (*accelPtr)->period_ms = 1;
+        (*accelPtr)->period_us = (*accelPtr)->period_ms * 1000UL;
+        (*accelPtr)->bgnNumStepsPerPeriod = (*accelPtr)->period_us / (uint16_t)(interrupterStep_us * bgnSpeed);
+        (*accelPtr)->dstNumStepsPerPeriod = (*accelPtr)->period_us / (uint16_t)(interrupterStep_us * dstSpeed);
+        (*accelPtr)->stepNumSteps = ((*accelPtr)->dstNumStepsPerPeriod - (*accelPtr)->bgnNumStepsPerPeriod) / (*accelPtr)->numPeriods;
     }
 }
 

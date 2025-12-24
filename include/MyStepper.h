@@ -72,7 +72,6 @@ class MyStepper
         void SetCurrentSpeed(st_dir_t dir,
                              uint8_t currentSpeed);
 
-        /// @param funcID Values 254,255 are reserved. In case you will use it, function will immediately return 0.
         bool ChangeSpeed(uint8_t dstSpeed, uint32_t time_ms);
 
         void Stop();
@@ -137,7 +136,7 @@ class MyStepper
         void InternalRefresh();
 
         /// @brief This function is counting acceleration parameters for laiter counts.
-        static void CountAccel(st_accel_t* accel, uint8_t bgnSpeed,uint8_t dstSpeed, uint32_t time_ms);
+        static void CountAccel(st_accel_t** accelPtr, uint8_t bgnSpeed,uint8_t dstSpeed, uint32_t time_ms);
 
         bool CountSteps(st_accel_t* accel);
 
@@ -168,10 +167,8 @@ class MyStepper
         uint8_t speedCounter = 0;         
 
         st_phase_t phase = START;
-        st_accel_t tmpAccel;
         st_accel_t* ptrTmpAccel = nullptr;
         st_accel_t* lastFinishAccel = nullptr;
-        st_brake_t* currentLvl;
         bool accelSuccess = false;
         uint32_t internalDistance;
 
@@ -185,6 +182,7 @@ class MyStepper
         st_point_t* pPtrOnHead = nullptr;
         st_brake_t* bPtrOnHead = nullptr;
         st_brake_t* bPtrOnTail = nullptr;
+        st_brake_t* currentLvl = nullptr;
 
         uint8_t errorCommand = 0;
         static uint8_t staticErrorCommand;
