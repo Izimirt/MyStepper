@@ -20,8 +20,9 @@ typedef struct
 
 typedef struct 
 {
-    st_accel_t* startAccel;
-    st_accel_t* finishAccel;
+    st_accel_t* startAccel = nullptr;
+    
+    st_accel_t* finishAccel = nullptr;
 } st_move_t;
 
 typedef struct
