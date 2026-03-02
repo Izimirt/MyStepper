@@ -15,12 +15,12 @@ class MyStepper
         MyStepper(uint8_t stepPin,
                   uint8_t dirPin,
                   uint8_t enPin,
-                  bool freeStay);
+                  bool powerStay);
 
         void SetEngine(uint8_t stepPin,
                        uint8_t dirPin,
                        uint8_t enPin,
-                       bool freeStay);
+                       bool powerStay);
 
         static void SetSteps(st_step_t** setPtr,
                              uint32_t steps,
@@ -45,9 +45,9 @@ class MyStepper
 
         /// @param maxSpeed (minSpeed) Количество циклов engine_step_micros = ширина шага(чем длиннее шаг, тем медленнее вращается мотор) (engine_step_micros = 10 microseconds)
         static void SetMove(st_move_t** setPtr,
-                            uint8_t startSpeed,
-                            uint8_t workSpeed,
-                            uint8_t finishSpeed,
+                            uint16_t startSpeed,
+                            uint16_t workSpeed,
+                            uint16_t finishSpeed,
                             uint16_t accelerationTime_ms,
                             uint16_t decelerationTime_ms);
 
@@ -70,9 +70,9 @@ class MyStepper
 
         /// @param momentalSpeed Количество циклов engine_step_micros = ширина шага(чем длиннее шаг, тем медленнее вращается мотор) (engine_step_micros = 10 microseconds)
         void SetCurrentSpeed(st_dir_t dir,
-                             uint8_t currentSpeed);
+                             uint16_t currentSpeed);
 
-        bool ChangeSpeed(uint8_t dstSpeed, uint32_t time_ms);
+        bool ChangeSpeed(uint16_t dstSpeed, uint32_t time_ms);
 
         void Stop();
 
@@ -82,9 +82,11 @@ class MyStepper
 
         static void RefreshAll();
 
-        void ResetCurrentPoint();
-
         bool GetFinish();
+
+        static bool GetFinishAll();
+
+        void ResetCurrentPoint();
 
         /// @return in BIN (младшие три бита это номер ошибки, начиная с 1, старшие 5 бит это ID двигателя, начиная с 1)
         /// Примеры:
@@ -100,7 +102,7 @@ class MyStepper
 
         int32_t GetCurrentPoint();
 
-        uint8_t GetCurrentSpeed();
+        uint16_t GetCurrentSpeed();
 
         uint8_t GetID();
 
@@ -124,19 +126,19 @@ class MyStepper
 
         static void Error(st_err_t error, MyStepper* unit = nullptr);
 
-        void InternalSetCurrentSpeed(st_dir_t dir, uint8_t currentSpeed);
+        void InternalSetCurrentSpeed(st_dir_t dir, uint16_t currentSpeed);
 
         bool InternalChangeSpeed(st_accel_t* accel, bool refresh);
 
         bool InternalMove(st_move_t* mv,
                           st_point_t* pnt = nullptr,     // for MoveToPiont()
                           st_step_t* dist = nullptr,     // for Move()
-                          st_dir_t dir = FWD);           // for Move()
+                          st_dir_t dir = st_dir::FWD);   // for Move()
 
         void InternalRefresh();
 
         /// @brief This function is counting acceleration parameters for laiter counts.
-        static void CountAccel(st_accel_t** accelPtr, uint8_t bgnSpeed,uint8_t dstSpeed, uint32_t time_ms);
+        static void CountAccel(st_accel_t** accelPtr, uint16_t bgnSpeed,uint16_t dstSpeed, uint32_t time_ms);
 
         bool CountSteps(st_accel_t* accel);
 
@@ -145,7 +147,7 @@ class MyStepper
         uint8_t stepPin;
         uint8_t dirPin;
         uint8_t enPin;
-        bool freeStay;
+        bool powerStay;
 
         uint32_t currentStep = 0;
         int32_t currentPoint = 0;
@@ -158,13 +160,13 @@ class MyStepper
         bool stopFlag = false;
 
         bool stepState = false;
-        uint8_t speed;
-        uint32_t previousMs;
+        uint16_t speed;
+        uint32_t previousUs;
         uint32_t accelerationSteps = 0;
         uint16_t timer = 0;
 
-        uint16_t currentUnrealNumStepsPerPeriod;    
-        uint8_t speedCounter = 0;         
+        float currentUnrealNumStepsPerPeriod;    
+        uint16_t speedCounter = 0;         
 
         st_phase_t phase = START;
         st_accel_t* ptrTmpAccel = nullptr;
@@ -172,7 +174,7 @@ class MyStepper
         bool accelSuccess = false;
         uint32_t internalDistance;
 
-        uint8_t prevDstSpeed = 0;
+        uint16_t prevDstSpeed = 0;
         uint32_t prevTime_ms = 0;
         st_dir_t prevDirection;
         st_move_t* prevMove = nullptr;

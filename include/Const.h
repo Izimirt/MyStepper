@@ -1,6 +1,6 @@
 #pragma once
 
-typedef enum
+typedef enum : uint8_t
 {
     UNDERSTEP = 0b1,
     OVERSTEP = 0b10,
@@ -11,14 +11,14 @@ typedef enum
     UNAVAILABLE_POINT = 0b111
 } st_err_t;
 
-typedef enum
+typedef enum : uint8_t
 {
     START,
     ACCELERATION_AND_GO,
     DECELERATION
 } st_phase_t;
 
-typedef enum
+typedef enum class st_dir : uint8_t
 {
     BWD,
     FWD
