@@ -186,6 +186,8 @@ class MyStepper
         st_brake_t* bPtrOnTail = nullptr;
         st_brake_t* currentLvl = nullptr;
 
+        static uint16_t brakeLvlMaxAmoumt;
+
         uint8_t errorCommand = 0;
         static uint8_t staticErrorCommand;
         void (*ExError)(void*) = nullptr;

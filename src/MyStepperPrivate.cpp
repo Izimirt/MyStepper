@@ -2,6 +2,8 @@
 
 #if defined(ESP32)
 
+    uint16_t MyStepper::brakeLvlMaxAmoumt = 30;
+
     hw_timer_t* MyStepper::interrupter = nullptr;
 
     void IRAM_ATTR MyStepper::Step()
@@ -22,12 +24,12 @@
                         (unitPtr->direction == st_dir::FWD) ? unitPtr->currentPoint++ : unitPtr->currentPoint--;
                         unitPtr->timer = 1;
                     }
-                    else 
+                    else
+                    {
                         unitPtr->timer++;
+                    }
                 }
             }
-            else
-                unitPtr->timer = 1;
 
             unitPtr = unitPtr->ptrOnOther;
         }
@@ -35,7 +37,11 @@
 
 #else
 
-    void MyStepper::Step() //=============================================== IRAM_ATTR
+    #include "GyverTimers.h"
+
+    uint16_t MyStepper::brakeLvlMaxAmoumt = 10;
+
+    void MyStepper::Step()
     {
         unitPtr = currentPtr;
 
@@ -53,12 +59,12 @@
                         (unitPtr->direction == st_dir::FWD) ? unitPtr->currentPoint++ : unitPtr->currentPoint--;
                         unitPtr->timer = 1;
                     }
-                    else 
+                    else
+                    {
                         unitPtr->timer++;
+                    }
                 }
             }
-            else
-                unitPtr->timer = 1;
 
             unitPtr = unitPtr->ptrOnOther;
         }
@@ -123,17 +129,20 @@ bool MyStepper::InternalChangeSpeed(st_accel_t* accel, bool refresh)
         previousUs = us;
     if (us >= previousUs + accel->period_us)
     {
+        previousUs = us;  
+
         if (speedCounter > 0)
         {
-            speed = constrain(round(accel->period_us / (currentUnrealNumStepsPerPeriod * interrupterStep_us)), 1, 0xFFFF);
+            speed = ((float)accel->period_us / (currentUnrealNumStepsPerPeriod * interrupterStep_us)) + 0.5f;    // + 0.5f like round(x), but faster
+            if(speed == 0)
+                speed = 1;;
             currentUnrealNumStepsPerPeriod += accel->stepNumSteps;
             speedCounter--;
         }
         else
+        {
             accelSuccess = true;
-
-            
-        previousUs = us;  
+        }
     }
     return accelSuccess;
 }
@@ -261,20 +270,25 @@ void MyStepper::CountAccel(st_accel_t** accelPtr, uint16_t bgnSpeed, uint16_t ds
 bool MyStepper::CountSteps(st_accel_t* accel)
 {
     uint16_t curSpeed = accel->bgnSpeed;                                         
-    float currentNumStepsPerPeriod = accel->bgnNumStepsPerPeriod;            
+    float currentNumStepsPerPeriod = accel->bgnNumStepsPerPeriod; 
            
     if (currentNumStepsPerPeriod == 0)   //  in case "no acceleration" currentNumStepsPerPeriod = 0
     {
         bPtrOnHead = bPtrOnTail = new st_brake_t {};
-        bPtrOnHead->steps = 0;
         return 1;
     }
 
+    uint16_t speedStep = abs(accel->dstSpeed - accel->bgnSpeed) / brakeLvlMaxAmoumt;
+    if(speedStep == 0)
+        speedStep = 1;   
+
+    uint16_t counter = 0;
     do
     {                                                                                                                       
-        if ((bPtrOnHead == nullptr) || (bPtrOnHead->speed != curSpeed))                                                  
+        if ((bPtrOnHead == nullptr) || (curSpeed >= (bPtrOnHead->speed + speedStep)))                                                  
         {
             st_brake_t* node = new st_brake_t {};
+
             if (node == nullptr)
             {
                 Error(CANT_COUNT_BRAKE,this);
@@ -289,16 +303,20 @@ bool MyStepper::CountSteps(st_accel_t* accel)
                 bPtrOnHead->ptrOnPrev->ptrOnNext = bPtrOnHead;
 
             bPtrOnHead->speed = curSpeed;
+            bPtrOnHead->time_us = accel->period_us * counter;
+
+            counter = 0;
         }    
 
         bPtrOnHead->steps += (float)(accel->period_us) / (curSpeed * interrupterStep_us);
-        bPtrOnHead->time_us += accel->period_us;
 
         currentNumStepsPerPeriod += accel->stepNumSteps;
-        curSpeed = round(accel->period_us / (currentNumStepsPerPeriod * interrupterStep_us));
+        curSpeed = ((float)accel->period_us / (currentNumStepsPerPeriod * interrupterStep_us)) + 0.5f;   // + 0.5f like round(x), but faster
+
+        counter++;
     }
     while (curSpeed < accel->dstSpeed);
-            
+
     if (bPtrOnHead->ptrOnPrev != nullptr)    //  Here we're summing steps, that engine do, while braking in case when we have several brake levels (not one)
     {
         st_brake_t* node = bPtrOnHead;

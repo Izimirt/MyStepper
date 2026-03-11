@@ -267,7 +267,7 @@ bool MyStepper::ChangeSpeed(uint16_t dstSpeed, uint32_t time_ms)
 {
     bool refresh = false;
 
-    manualFlag == true;
+    manualFlag = true;
 
     if ((dstSpeed != prevDstSpeed) || (time_ms != prevTime_ms))
     {
