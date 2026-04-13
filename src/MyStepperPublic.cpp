@@ -156,15 +156,16 @@ bool MyStepper::Move(st_dir_t dir, st_move_t* mv, st_step_t* dist, int8_t interr
 
     if (interrupter > 0)
     {
-        Stop();
         if ((dist != NO_DISTANCE) && 
            (currentStep < (dist->steps - dist->understeps)))
         {
+            Stop();
             Error(UNDERSTEP,this);
             return 0;
         }
         else
         {
+            SoftStop();
             finishFlag = true;
             return 1;
         }
@@ -174,7 +175,7 @@ bool MyStepper::Move(st_dir_t dir, st_move_t* mv, st_step_t* dist, int8_t interr
     {
         if ((currentStep >= dist->steps) && (interrupter < 0))
         {
-            Stop();
+            SoftStop();
             finishFlag = true;
             return 1;
         }
@@ -216,34 +217,35 @@ bool MyStepper::MoveToPoint(st_point_t* pnt, st_move_t* mv, int8_t interrupter)
     if ((errorCommand != 0) || (staticErrorCommand != 0))
         return 0;
 
-    if (finishFlag)
-        return 1;
-
     if ((pnt != prevPoint) || (mv != prevMove))
         InternalRefresh();
     prevPoint = pnt;
     prevMove = mv;
 
+    if (finishFlag)
+        return 1;
+
     InternalMove(mv,pnt,nullptr);
 
     if (interrupter > 0)
     {
-        Stop();
         if ((!pnt->noUndersteps) && (internalDistance > pnt->understeps))
         {
             if (currentStep < (internalDistance - pnt->understeps))
             {
+                Stop();
                 Error(UNDERSTEP,this);
                 return 0;
             }
         }
+        SoftStop();
         finishFlag = true;
         return 1;
     }
 
     if ((currentStep >= internalDistance) && (interrupter < 0))
     {
-        Stop();
+        SoftStop();
         finishFlag = true;
         return 1;
     }
@@ -280,11 +282,8 @@ bool MyStepper::ChangeSpeed(uint16_t dstSpeed, uint32_t time_ms)
 
 void MyStepper::Stop()
 {
-    moveFlag = false;
     stopFlag = true;
-    speed = 0;
-    if (!powerStay)
-        digitalWrite(enPin, true);
+    SoftStop();
 }
 
 void MyStepper::StopAll()
@@ -299,7 +298,7 @@ void MyStepper::StopAll()
 
 void MyStepper::Refresh()
 {
-    Stop();
+    SoftStop();
     finishFlag = false;
     manualFlag = false;
     stopFlag = false;

@@ -230,6 +230,7 @@ bool MyStepper::InternalMove(st_move_t* mv, st_point_t* pnt, st_step_t* dist, st
 
 void MyStepper::InternalRefresh()
 {
+    finishFlag = false;
     currentStep = 0;
     phase = START;
 }
@@ -355,7 +356,15 @@ bool MyStepper::CheckNeedCountSteps(st_accel_t* accel)
     return 1;
 }
 
-void MyStepper::Error(st_err_t error, MyStepper* unit)
+void MyStepper::SoftStop()
+{
+    moveFlag = false;
+    speed = 0;
+    if (!powerStay)
+        digitalWrite(enPin, true);
+}
+
+void MyStepper::Error(st_err_t error, MyStepper *unit)
 {
     uint8_t err = (uint8_t)error;
     if (unit != nullptr)

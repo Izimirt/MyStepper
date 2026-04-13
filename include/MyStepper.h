@@ -124,6 +124,8 @@ class MyStepper
             static void Step();
         #endif
 
+        void SoftStop();
+
         static void Error(st_err_t error, MyStepper* unit = nullptr);
 
         void InternalSetCurrentSpeed(st_dir_t dir, uint16_t currentSpeed);
