@@ -171,7 +171,7 @@ class MyStepper
         uint16_t speedCounter = 0;         
 
         st_phase_t phase = START;
-        st_accel_t* ptrTmpAccel = nullptr;
+        st_accel_t tmpAccel;
         st_accel_t* lastFinishAccel = nullptr;
         bool accelSuccess = false;
         uint32_t internalDistance;

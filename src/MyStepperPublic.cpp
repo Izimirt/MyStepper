@@ -273,11 +273,12 @@ bool MyStepper::ChangeSpeed(uint16_t dstSpeed, uint32_t time_ms)
 
     if ((dstSpeed != prevDstSpeed) || (time_ms != prevTime_ms))
     {
-        CountAccel(&ptrTmpAccel,speed,dstSpeed,time_ms);
+        st_accel_t* ptr = &tmpAccel;
+        CountAccel(&ptr,speed,dstSpeed,time_ms);
         refresh = true;
     }
 
-    return InternalChangeSpeed(ptrTmpAccel,refresh);
+    return InternalChangeSpeed(&tmpAccel,refresh);
 }
 
 void MyStepper::Stop()

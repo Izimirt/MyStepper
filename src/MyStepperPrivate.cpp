@@ -19,7 +19,23 @@
                     if (unitPtr->timer >= unitPtr->speed)
                     {
                         unitPtr->stepState = !unitPtr->stepState;
-                        digitalWrite(unitPtr->stepPin,unitPtr->stepState);
+
+                        // digitalWrite(unitPtr->stepPin,unitPtr->stepState);
+                        if (unitPtr->stepState)
+                        {
+                            if (unitPtr->stepPin < 32)
+                                GPIO.out_w1ts = (1UL << unitPtr->stepPin);
+                            else
+                                GPIO.out1_w1ts.val = (1UL << (unitPtr->stepPin - 32));
+                        }
+                        else
+                        {
+                            if (unitPtr->stepPin < 32)
+                                GPIO.out_w1tc = (1UL << unitPtr->stepPin);
+                            else
+                                GPIO.out1_w1tc.val = (1UL << (unitPtr->stepPin - 32));
+                        }
+
                         unitPtr->currentStep++;
                         (unitPtr->direction == st_dir::FWD) ? unitPtr->currentPoint++ : unitPtr->currentPoint--;
                         unitPtr->timer = 1;
@@ -77,7 +93,7 @@
 
 #endif
 
-uint8_t MyStepper::interrupterStep_us = 10;
+uint8_t MyStepper::interrupterStep_us = 40;
 
 uint8_t MyStepper::numSteppers = 0;
 
@@ -211,17 +227,20 @@ bool MyStepper::InternalMove(st_move_t* mv, st_point_t* pnt, st_step_t* dist, st
                 refresh = true;
 
                 if (normalBrake)
-                    ptrTmpAccel = mv->finishAccel;
+                    tmpAccel = *mv->finishAccel;
                 else
-                    CountAccel(&ptrTmpAccel,speed,mv->finishAccel->dstSpeed,(currentLvl->time_us / 1000));
-                    
+                {
+                    st_accel_t* ptr = &tmpAccel;
+                    CountAccel(&ptr,speed,mv->finishAccel->dstSpeed,(currentLvl->time_us / 1000));
+                }    
+
                 phase = DECELERATION;
             }
         }
     }
     if (phase == DECELERATION)
     {
-        if (InternalChangeSpeed(ptrTmpAccel,refresh))
+        if (InternalChangeSpeed(&tmpAccel,refresh))
             done = true; 
     }
 

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 typedef enum : uint8_t
 {
     UNDERSTEP = 0b1,
