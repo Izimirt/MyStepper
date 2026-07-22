@@ -2,9 +2,15 @@
 
 #include <Arduino.h>
 #include <math.h>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/rmt.h"
 
 #include "Const.h"
 #include "Structs.h"
+
+typedef void (*FinishCallback)(); 
+typedef void (*ExtPinCallback)(uint8_t motorID, bool state);
 
 class MyStepper 
 {
@@ -13,43 +19,39 @@ class MyStepper
         MyStepper();
 
         MyStepper(uint8_t stepPin,
-                  uint8_t dirPin,
-                  uint8_t enPin,
-                  bool powerStay);
+                  uint8_t dirPin = 0,
+                  uint8_t enPin = 0,
+                  bool powerStay = true);
 
         void SetEngine(uint8_t stepPin,
-                       uint8_t dirPin,
-                       uint8_t enPin,
-                       bool powerStay);
+                       uint8_t dirPin = 0,
+                       uint8_t enPin = 0,
+                       bool powerStay = true);
 
-        static void SetSteps(st_step_t** setPtr,
+        static void SetSteps(st_step_t* stepStruct,
                              uint32_t steps,
                              uint32_t understeps = 0,
                              uint32_t oversteps = 0);
 
-        void SetPoint(st_point_t** setPtr,
+        void SetPoint(st_point_t* pntStruct,
                       int32_t point,
-                      int32_t understeps = 0,
-                      int32_t oversteps = 0,
-                      bool noUndersteps = false,
-                      uint16_t pointNumber = 0);
+                      int32_t understeps,
+                      int32_t oversteps);
 
-        void SetPointInArea(st_point_t** setPtr,
-                            st_point_t* minEdge,
-                            st_point_t* maxEdge,
+        void SetPointInArea(st_point_t* pntStruct,
+                            st_point_t minEdgePnt,
+                            st_point_t maxEdgePnt,
                             int32_t point,
                             int32_t understeps = 0,
-                            int32_t oversteps = 0,
-                            bool noUndersteps = false,
-                            uint16_t pointNumber = 0);
+                            int32_t oversteps = 0);
 
-        /// @param maxSpeed (minSpeed) Количество циклов engine_step_micros = ширина шага(чем длиннее шаг, тем медленнее вращается мотор) (engine_step_micros = 10 microseconds)
-        static void SetMove(st_move_t** setPtr,
-                            uint16_t startSpeed,
-                            uint16_t workSpeed,
-                            uint16_t finishSpeed,
-                            uint16_t accelerationTime_ms,
-                            uint16_t decelerationTime_ms);
+
+        static void SetMove(st_move_t* mvStruct,
+                            uint32_t v_start_hz,
+                            uint32_t v_work_hz,
+                            uint32_t v_fin_hz,
+                            uint32_t t_accel_ms,
+                            uint32_t t_decel_ms);
 
         static void SetSerial(HardwareSerial* Serial = nullptr, uint32_t baudRate = 9600);
 
@@ -59,9 +61,9 @@ class MyStepper
 
         /// @param interrupter Как правило"PinObject.AntirattleSensor() > time"
         bool Move(st_dir_t dir,
-                  st_move_t* mv,
-                  st_step_t* dist = NO_DISTANCE,
-                  int8_t interrupter = -1);
+                  st_move_t mv,
+                  st_step_t dist,
+                  int8_t* interrupter = nullptr);
 
         /// @param interrupter Как правило"PinObject.AntirattleSensor() > time"
         bool MoveToPoint(st_point_t* pnt,
@@ -112,17 +114,27 @@ class MyStepper
 
         static void CleanAllErrors();
 
-        #ifndef ESP32
-            static void Step();
-            static void StartInterrupter();
-        #endif
+        static void SetExtDirCallback(ExtPinCallback cb);
+        static void SetExtEnCallback(ExtPinCallback cb);
 
     private:
 
-        #ifdef ESP32
-            static hw_timer_t* interrupter;
-            static void Step();
-        #endif
+        typedef enum class MoveType : uint8_t
+        {
+            STOP,
+            DISTANCE,
+            POINT,
+            MANUAL
+        } mv_t;
+
+        // Обертка для FreeRTOS (обходит ограничение C++ на указатели функций) 
+        static void TaskWrapper(void* arg);
+
+        void MoveTask();
+
+
+        static hw_timer_t* interrupter;
+        static void Step();
 
         void SoftStop();
 
@@ -151,12 +163,30 @@ class MyStepper
         uint8_t enPin;
         bool powerStay;
 
+        volatile bool* interrupter = nullptr;
+        FinishCallback OnFinishCb = nullptr;
+
+        static ExtPinCallback dirCallback;
+        static ExtPinCallback enCallback;
+
+        TaskHandle_t taskHandle = nullptr;
+        QueueHandle_t taskMailbox = nullptr;
+
+        mv_t mv = mv_t::STOP;
+
+        st_move_t* move = nullptr;
+        st_dist_t* distance = nullptr;
+        st_point_t* point = nullptr;
+
+
+
         uint32_t currentStep = 0;
         int32_t currentPoint = 0;
         st_dir_t direction;
 
-        bool moveFlag = false;
-        bool finishFlag = false;
+        volatile bool moveFlag = false;
+        volatile bool finishFlag = false;
+
         bool brakeFlag = false;
         bool manualFlag = false;
         bool stopFlag = false;
@@ -198,7 +228,10 @@ class MyStepper
 
         uint8_t ID;
         static uint8_t numSteppers;
-        static uint8_t interrupterStep_us;
+        rmt_channel_t rmt_channel;
+
+
+
 
         MyStepper* ptrOnOther;
         static MyStepper* currentPtr;

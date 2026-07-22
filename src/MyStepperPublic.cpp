@@ -1,42 +1,31 @@
 #include "MyStepper.h"
 
-#if defined(ESP32)
 
-    MyStepper::MyStepper()
+MyStepper::MyStepper()
+{
+    if (numSteppers == 7)
     {
-        ptrOnOther = currentPtr;
-        currentPtr = this;
-        if (numSteppers == 0)
-        {
-            interrupter = timerBegin(0,80,true);    //  80MHz (это APB_frequency, а не CPU_frequency)
-            timerAttachInterrupt(interrupter,&MyStepper::Step,true);
-            timerAlarmWrite(interrupter,interrupterStep_us,true);
-            timerAlarmEnable(interrupter);
-        }
-        numSteppers++;
-        ID = numSteppers;
+        // ERR
     }
 
-#else
+    numSteppers++;
+    ID = numSteppers;
+    rmt_channel = (rmt_channel_t)ID;
 
-    #include "GyverTimers.h"
+    ptrOnOther = currentPtr;
+    currentPtr = this;
 
-    MyStepper::MyStepper()
+
+
+
+    if (numSteppers == 0)
     {
-        ptrOnOther = currentPtr;
-        currentPtr = this;
-        numSteppers++;
-        ID = numSteppers;
+        interrupter = timerBegin(0,80,true);    //  80MHz (это APB_frequency, а не CPU_frequency)
+        timerAttachInterrupt(interrupter,&MyStepper::Step,true);
+        timerAlarmWrite(interrupter,interrupterStep_us,true);
+        timerAlarmEnable(interrupter);
     }
-
-    void MyStepper::StartInterrupter()
-    {
-        interrupterStep_us *= 2;
-        Timer1.setPeriod(interrupterStep_us);
-        Timer1.enableISR(CHANNEL_B);
-    }
-
-#endif
+}
 
 MyStepper::MyStepper(uint8_t stepPin, uint8_t dirPin, uint8_t enPin, bool powerStay) : MyStepper()
 {
@@ -49,6 +38,24 @@ void MyStepper::SetEngine(uint8_t stepPin, uint8_t dirPin, uint8_t enPin, bool p
     this-> dirPin = dirPin;
     this-> enPin = enPin;
     this-> powerStay = powerStay;
+
+    rmt_config_t config = RMT_DEFAULT_CONFIG_TX((gpio_num_t)stepPin, rmt_channel);
+    rmt_config(&config);
+    rmt_driver_install(rmt_channel, 0, 0);
+
+    taskMailbox = xQueueCreate(1, sizeof(task_mail_t));
+
+
+    xTaskCreatePinnedToCore(
+        MyStepper::TaskWrapper,     // Функция обертки
+        "StepperTask",              // Имя задачи
+        4096,                       // Размер стека в байтах
+        this,                       // Указатель на себя
+        5,                          // Приоритет задачи (выше среднего)
+        &taskHandle,                // Хендл
+        1                           // Ядро (1, чтобы не мешать WiFi на 0 ядре)
+    );
+
     pinMode(stepPin, OUTPUT);
     pinMode(dirPin, OUTPUT);
     pinMode(enPin, OUTPUT);
@@ -58,77 +65,75 @@ void MyStepper::SetEngine(uint8_t stepPin, uint8_t dirPin, uint8_t enPin, bool p
         digitalWrite(enPin, true);
 }
 
-void MyStepper::SetSteps(st_step_t** setPtr, uint32_t steps, uint32_t understeps, uint32_t oversteps)
+void MyStepper::SetSteps(st_dist_t* stepStruct, uint32_t steps, uint32_t understeps, uint32_t oversteps)
 {
-    if (*setPtr == nullptr)
-        *setPtr = new st_step_t;
+    if (stepStruct == nullptr)
+    {
+        Error(NO_STRUCT);
+        return;
+    }
+ 
     if (understeps == 0)
         understeps = steps;
-    (*setPtr)->steps = steps;
-    (*setPtr)->understeps = understeps;
-    (*setPtr)->oversteps = oversteps;
+    stepStruct->steps = steps;
+    stepStruct->understeps = understeps;
+    stepStruct->oversteps = oversteps;
 }
 
-void MyStepper::SetPoint(st_point_t** setPtr, int32_t point, int32_t understeps, int32_t oversteps, bool noUndersteps, uint16_t pointNumber)
+void MyStepper::SetPoint(st_point_t* pntStruct, int32_t point, int32_t understeps, int32_t oversteps)
 {
-    if (*setPtr == nullptr)
-        *setPtr = new st_point_t;
-    (*setPtr)->ptrOnPrev = pPtrOnHead;
-    pPtrOnHead =  *setPtr;
-    (*setPtr)->pointNumber = pointNumber;
+    if (pntStruct == nullptr)
+    {
+        Error(NO_STRUCT);
+        return;
+    }
 
-    if (noUndersteps)
-        (*setPtr)->noUndersteps = true;
-    (*setPtr)->point = point;
-    (*setPtr)->understeps = understeps;
-    (*setPtr)->oversteps = oversteps;
+    pntStruct->point = point;
+    pntStruct->understeps = understeps;
+    pntStruct->oversteps = oversteps;
 }
 
-void MyStepper::SetPointInArea(st_point_t** setPtr, st_point_t* minEdge, st_point_t* maxEdge, int32_t point, int32_t understeps, int32_t oversteps, bool noUndersteps, uint16_t pointNumber)
+void MyStepper::SetPointInArea(st_point_t* pntStruct, st_point_t minEdgePnt, st_point_t maxEdgePnt, int32_t point, int32_t understeps, int32_t oversteps)
 {
-    if ((minEdge == NO_POINT) && (maxEdge == NO_POINT))
+    if (minEdgePnt.point > maxEdgePnt.point)
     {
         Error(UNAVAILABLE_POINT,this);
         return;
     }
-    if ((minEdge != NO_POINT) && (maxEdge != NO_POINT))
-    {
-        if (minEdge->point > maxEdge->point)
-        {
-            Error(UNAVAILABLE_POINT,this);
-            return;
-        }
-    }
 
-    point = constrain(point,minEdge->point,maxEdge->point);
-
-    SetPoint(setPtr,point,understeps,oversteps,noUndersteps,pointNumber);
+    point = constrain(point,minEdgePnt.point, maxEdgePnt.point);
+    SetPoint(pntStruct,point,understeps,oversteps);
 }
 
-void MyStepper::SetMove(st_move_t** setPtr, uint16_t startSpeed, uint16_t workSpeed, uint16_t finishSpeed, uint16_t accelerationTime_ms, uint16_t decelerationTime_ms)
+void MyStepper::SetMove(st_move_t* mvStruct, uint32_t v_start_hz, uint32_t v_work_hz, uint32_t v_fin_hz, uint32_t t_accel_ms, uint32_t t_decel_ms)
 {
-    if ((startSpeed < workSpeed) && (startSpeed != 0))              // In this case engine won't run. If you erase the error, 
-    {                                                              // engine will work, but without breaked acceleration/deceleration,
-        Error(INCORRECT_MOVE_PARAMETERS);                          // because flag noAccel will be turned ON.
-        startSpeed = workSpeed;
-    }
-    if (finishSpeed < workSpeed)
+    if (mvStruct == nullptr)
     {
-        Error(INCORRECT_MOVE_PARAMETERS);
-        finishSpeed = workSpeed;
+        Error(NO_STRUCT);
+        return;
     }
-    if (*setPtr == nullptr)
-        *setPtr = new st_move_t;
  
-    CountAccel(&((*setPtr)->startAccel),startSpeed,workSpeed,accelerationTime_ms);
-    CountAccel(&((*setPtr)->finishAccel),workSpeed,finishSpeed,decelerationTime_ms);
+    mvStruct->v_start_hz = v_start_hz;
+    mvStruct->v_work_hz = v_work_hz;
+    mvStruct->v_fin_hz = v_fin_hz;
+
+    if (t_accel_ms == 0)
+        mvStruct->a_accel = 0.0f;
+    else
+        mvStruct->a_accel = ((float)v_work_hz - (float)v_start_hz) * 1000.0f / (float)t_accel_ms;
+
+    if (t_decel_ms == 0)
+        mvStruct->a_decel = 0.0f;
+    else
+        mvStruct->a_decel = ((float)v_fin_hz - (float)v_work_hz) * 1000.0f / (float)t_decel_ms;
 }
+
 void MyStepper::SetCommonErrorHandler(void (*ExError)(void *))
 {
     CommonExError = ExError;
 }
 
-void MyStepper::SetSerial(HardwareSerial* Serial, uint32_t baudRate)
+void MyStepper::SetSerial(HardwareSerial *Serial, uint32_t baudRate)
 {
     MySerial = Serial;
     MySerial->begin(baudRate);
@@ -140,13 +145,20 @@ void MyStepper::SetErrorHandler(void (*ExError)(void*), bool ignoreCommonExError
     this->ignoreCommonExError = ignoreCommonExError;
 }
 
-bool MyStepper::Move(st_dir_t dir, st_move_t* mv, st_step_t* dist, int8_t interrupter)
+bool MyStepper::Move(st_dir_t dir, st_move_t mv, st_step_t dist, int8_t* interrupter)
 {
+
+
+
+
+
+
+    
     if (manualFlag)
         return 0;
 
     if (stopFlag)
-        return 0;    
+        return 0;
 
     if ((errorCommand != 0) || (staticErrorCommand != 0))
         return 0;
@@ -388,4 +400,12 @@ void MyStepper::CleanAllErrors()
         ptr = ptr->ptrOnOther;
     }
     CleanStaticError();
+}
+
+void MyStepper::SetExtDirCallback(ExtPinCallback cb)
+{
+}
+
+void MyStepper::SetExtEnCallback(ExtPinCallback cb)
+{
 }

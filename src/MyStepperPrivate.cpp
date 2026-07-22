@@ -1,81 +1,37 @@
 #include "MyStepper.h"
 
-#if defined(ESP32)
+uint16_t MyStepper::brakeLvlMaxAmoumt = 30;
 
-    uint16_t MyStepper::brakeLvlMaxAmoumt = 30;
+hw_timer_t* MyStepper::interrupter = nullptr;
 
-    hw_timer_t* MyStepper::interrupter = nullptr;
+void IRAM_ATTR MyStepper::Step()
+{
+    unitPtr = currentPtr;
 
-    void IRAM_ATTR MyStepper::Step()
+    while (unitPtr != nullptr)
     {
-        unitPtr = currentPtr;
-
-        while (unitPtr != nullptr)
+        if (unitPtr->moveFlag)
         {
-            if (unitPtr->moveFlag)
+            if (unitPtr->speed != 0)
             {
-                if (unitPtr->speed != 0)
+                if (unitPtr->timer >= unitPtr->speed)
                 {
-                    if (unitPtr->timer >= unitPtr->speed)
-                    {
-                        unitPtr->stepState = !unitPtr->stepState;
-                        digitalWrite(unitPtr->stepPin,unitPtr->stepState);
-                        unitPtr->currentStep++;
-                        (unitPtr->direction == st_dir::FWD) ? unitPtr->currentPoint++ : unitPtr->currentPoint--;
-                        unitPtr->timer = 1;
-                    }
-                    else
-                    {
-                        unitPtr->timer++;
-                    }
+                    unitPtr->stepState = !unitPtr->stepState;
+                    digitalWrite(unitPtr->stepPin,unitPtr->stepState);
+                    unitPtr->currentStep++;
+                    (unitPtr->direction == st_dir::FWD) ? unitPtr->currentPoint++ : unitPtr->currentPoint--;
+                    unitPtr->timer = 1;
+                }
+                else
+                {
+                    unitPtr->timer++;
                 }
             }
-
-            unitPtr = unitPtr->ptrOnOther;
         }
+
+        unitPtr = unitPtr->ptrOnOther;
     }
-
-#else
-
-    #include "GyverTimers.h"
-
-    uint16_t MyStepper::brakeLvlMaxAmoumt = 10;
-
-    void MyStepper::Step()
-    {
-        unitPtr = currentPtr;
-
-        while (unitPtr != nullptr)
-        {
-            if (unitPtr->moveFlag)
-            {
-                if (unitPtr->speed != 0)
-                {
-                    if (unitPtr->timer >= unitPtr->speed)
-                    {
-                        unitPtr->stepState = !unitPtr->stepState;
-                        digitalWrite(unitPtr->stepPin,unitPtr->stepState);
-                        unitPtr->currentStep++;
-                        (unitPtr->direction == st_dir::FWD) ? unitPtr->currentPoint++ : unitPtr->currentPoint--;
-                        unitPtr->timer = 1;
-                    }
-                    else
-                    {
-                        unitPtr->timer++;
-                    }
-                }
-            }
-
-            unitPtr = unitPtr->ptrOnOther;
-        }
-    }
-
-    ISR(TIMER1_B)
-    {
-        MyStepper::Step();
-    }
-
-#endif
+}
 
 uint8_t MyStepper::interrupterStep_us = 10;
 
@@ -90,6 +46,129 @@ MyStepper* MyStepper::currentPtr = nullptr;
 MyStepper* MyStepper::unitPtr = nullptr;
 
 HardwareSerial* MyStepper::MySerial = nullptr;
+
+
+
+
+
+
+ExtPinCallback MyStepper::dirCallback = nullptr;
+
+ExtPinCallback MyStepper::enCallback = nullptr;
+
+
+
+
+void MyStepper::TaskWrapper(void* arg)
+{
+    MyStepper* engine = (MyStepper*)(arg);
+    engine->MoveTask();
+}
+
+void MyStepper::MoveTask()
+{
+    task_mail_t mail;
+
+    while (true)
+    {
+        if (xQueueReceive(taskMailbox, &mail, 0) == pdTRUE)
+        {
+            // Пришли НОВЫЕ параметры движения!
+            isMoving = true;
+
+            // Здесь сбрасываем текущие счетчики, счетчик шагов и т.д.
+            // current_v = currentMove.v_start_hz;
+        }
+
+
+        switch (mv)
+        {
+            case mv_t::STOP:
+                // vTaskDelay(pdMS_TO_TICKS(1)); 
+                // continue;
+                break;
+
+            case mv_t::DISTANCE:
+                if ((interrupter != nullptr) && (*interrupter))
+                {
+                    if ((distance != NO_DISTANCE) && 
+                        (currentStep < (distance->steps - distance->understeps)))
+                    {
+                        Stop();
+                        Error(UNDERSTEP,this);
+                        continue;
+                    }
+                    else
+                    {
+                        SoftStop();
+                        finishFlag = true;
+                        continue;
+                    }
+                }
+
+                if (distance != NO_DISTANCE)
+                {
+                    if ((currentStep >= distance->steps) && (interrupter == nullptr))
+                    {
+                        SoftStop();
+                        finishFlag = true;
+                        continue;
+                    }
+                    if (currentStep >= (distance->steps + distance->oversteps))
+                    {
+                        Stop();
+                        Error(OVERSTEP,this);
+                        continue;
+                    }
+                }
+                break;
+
+            case mv_t::POINT:
+                
+                break;
+
+            case mv_t::MANUAL:
+                
+                break;
+        }
+
+        
+            
+        // Вызываем коллбэк завершения
+        if (on_finish_cb != nullptr) on_finish_cb();
+        continue;
+        
+
+
+        float current_a = 0;
+
+        if (currentStep < currentAccel.s_accel)
+            current_a = currentMove.a_accel;
+        else if (currentStep >= (currentDist.s_total - currentAccel.s_decel))
+            current_a = currentMove.a_decel;
+        else
+            current_a = 0.0;
+
+        current_v += (current_a / current_v);
+
+
+
+        // 4. ГЕНЕРАЦИЯ И ОТПРАВКА ШАГОВ
+        // Здесь твоя математика: расчет скорости по профилю
+        // rmt_item32_t step_items[10]; ...
+        
+        // Пробуем отправить пачку неблокирующим способом (таймаут = 0)
+        /*
+        esp_err_t err = rmt_write_items(CHANNEL, step_items, num_items, 0);
+        if (err == ESP_OK) {
+            current_pos += num_items; // обновили счетчик позиции
+        }
+        */
+
+        // 5. Уступаем процессор (очень важно, иначе сработает Watchdog!)
+        taskYIELD(); 
+    }
+}
 
 void MyStepper::InternalSetCurrentSpeed(st_dir_t dir, uint16_t currentSpeed)
 {

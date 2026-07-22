@@ -7,38 +7,31 @@
 
 typedef struct
 {
-    uint16_t bgnSpeed;
-    uint16_t dstSpeed;
-    uint32_t time_ms;
-    uint32_t period_us;
-    float bgnNumStepsPerPeriod;
-    float dstNumStepsPerPeriod;
-    float stepNumSteps;
-    uint16_t numPeriods;
+    uint32_t s_accel = 0;
+    uint32_t s_decel = 0;
 } st_accel_t;
 
 typedef struct 
 {
-    st_accel_t* startAccel = nullptr;
-    st_accel_t* finishAccel = nullptr;
+    uint32_t v_start_hz =   0;
+    uint32_t v_work_hz =    0;
+    uint32_t v_fin_hz =     0;
+    float a_accel =         0.0f;
+    float a_decel =         0.0f;
 } st_move_t;
 
 typedef struct
 {
-    uint32_t steps = 0;
-    uint32_t understeps = 0;
-    uint32_t oversteps = 0;
-} st_step_t;
+    uint32_t s_total =      0;
+    uint32_t s_under =      0;
+    uint32_t s_over =       0;
+} st_dist_t;
 
 typedef struct pnt
 {
     int32_t point = 0;
-    int32_t understeps = 0;
-    int32_t oversteps = 0;
-    bool noUndersteps = false;
-
-    uint16_t pointNumber;
-    pnt* ptrOnPrev = nullptr;
+    int32_t s_under = 0;
+    int32_t s_over = 0;
 } st_point_t;
 
 typedef struct br
@@ -50,3 +43,10 @@ typedef struct br
     br* ptrOnNext = nullptr;
     br* ptrOnPrev = nullptr;
 } st_brake_t;
+
+typedef struct TaskMail
+{
+    st_move_t mv        {};
+    st_dist_t dist      {};
+    st_accel_t a_dist   {};
+} task_mail_t;

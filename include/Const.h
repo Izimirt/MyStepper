@@ -2,13 +2,13 @@
 
 typedef enum : uint8_t
 {
-    UNDERSTEP = 0b1,
-    OVERSTEP = 0b10,
-    UNEXPECTED_ENTER_IN_FUNCTION = 0b11,
-    CANT_COUNT_BRAKE = 0b100,
-    INCORRECT_MOVE_PARAMETERS = 0b101,
-    UNKNOWN_DISTANCE = 0b110,
-    UNAVAILABLE_POINT = 0b111
+    UNDERSTEP =                     0b001,
+    OVERSTEP =                      0b010,
+    UNEXPECTED_ENTER_IN_FUNCTION =  0b011,
+    CANT_COUNT_BRAKE =              0b100,
+    NO_STRUCT =                     0b101,
+    UNKNOWN_DISTANCE =              0b110,
+    UNAVAILABLE_POINT =             0b111
 } st_err_t;
 
 typedef enum : uint8_t
